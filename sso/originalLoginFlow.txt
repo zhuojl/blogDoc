@@ -1,0 +1,53 @@
+actor user
+participant Browser
+participant casServer
+participant app2
+note right of Browser
+有时也代表前端服务，
+比如第2、3；12、14
+end note
+autonumber
+== 用户已经完成cas server的登录，开始第一次访问app2服务的受保护的资源 ==
+
+user -> Browser: 访问前端服务的页面
+activate Browser
+Browser -> app2: /loginInfo?<font color=red><b>cust_url=http://www.baidu.com(发起请求的当前页面的地址)
+activate app2
+note left
+前端请求时带上当前页面url
+end note
+
+app2 --> Browser: 200 login=false,ssoUrl=https://cas.example.com/cas/login?service=https%3a%2f%2fapp2.example.com%2fcas%2flogin&<font color=red><b>cust_url=http%3a%2f%2fwww.baidu.com
+deactivate app2
+note left
+app2 登录验证不通过，将cust_url拼接到url中，
+传递给casServer，等casServer透传回来
+end note
+
+Browser -> Browser: window.location.href=#{ssoUrl}
+Browser -> casServer: Cookie:CASTGC=TGT-2345678 \n https://cas.example.com/cas/login?cust_url=http%3a%2f%2fwww.baidu.com&service=https%3a%2f%2fapp2.example.com%2fcas%2flogin
+activate casServer
+casServer --> Browser: 302 Location:https://app2.example.com%2fcas%2flogin?ticket=ST-app2-XXX&<font color=red><b>cust_url=http%3a%2f%2fwww.baidu.com
+deactivate casServer
+note left
+casServer 透传所有cust_开头的参数，
+包括这里的cust_url
+end note
+
+Browser -> app2: https://app2.example.com%2fcas%2flogin?ticket=ST-app2-XXX&cust_url=http%3a%2f%2fwww.baidu.com
+activate app2
+app2 -> casServer: GET https://cas.example.com/serviceValidate?\n service=https%3a%2f%2fapp2.example.com%2f&ticket=ST-app2-XXX
+casServer --> app2: 200[XML content]
+app2 --> Browser: Set-Cookie: JSESSIONID=app2-XXX-XXX \n 302 <font color=red><b>Location:http://www.baidu.com
+deactivate app2
+note left
+app2在casServer验证通过之后，从request中拿cust_url，
+并设置为 重定向的地址。
+end note
+Browser -> Browser: 访问原始的前端页面： http://www.baidu.com
+Browser -> app2: /loginInfo Cookie: JSESSIONID=app2-XXX-XXX
+activate app2
+app2 -> app2: validate session cookie
+app2 --> Browser: [200] and content
+deactivate app2
+deactivate Browser
