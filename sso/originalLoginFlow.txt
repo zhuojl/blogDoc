@@ -1,3 +1,4 @@
+@startuml
 actor user
 participant Browser
 participant casServer
@@ -51,3 +52,5 @@ app2 -> app2: validate session cookie
 app2 --> Browser: [200] and content
 deactivate app2
 deactivate Browser
+
+@enduml
